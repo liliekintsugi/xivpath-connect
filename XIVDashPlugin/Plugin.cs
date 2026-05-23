@@ -60,7 +60,7 @@ public sealed class Plugin : IDalamudPlugin
         _ = TriggerSync("connexion");
     }
 
-    private void OnTerritoryChanged(ushort territory)
+    private void OnTerritoryChanged(uint territory)
     {
         if (!_config.AutoSyncOnZoneChange || string.IsNullOrWhiteSpace(_config.ApiToken)) return;
         _ = TriggerSync($"zone #{territory}");

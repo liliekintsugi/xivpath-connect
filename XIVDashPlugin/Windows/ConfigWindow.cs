@@ -49,8 +49,12 @@ public sealed class ConfigWindow : Window
         }
 
         ImGui.Spacing();
-        if (ImGui.Checkbox("Synchro auto au changement de zone", ref _config.AutoSyncOnZoneChange))
+        var autoSync = _config.AutoSyncOnZoneChange;
+        if (ImGui.Checkbox("Synchro auto au changement de zone", ref autoSync))
+        {
+            _config.AutoSyncOnZoneChange = autoSync;
             _config.Save();
+        }
 
         ImGui.Spacing();
         ImGui.Separator();
