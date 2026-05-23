@@ -20,28 +20,36 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Download Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://goatcorp.github.io/dalamud-distrib/stg/latest.zip" `
+            -OutFile dalamud.zip
+          Expand-Archive dalamud.zip -DestinationPath dalamud-dist
+
       - name: Restore
         run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
 
       - name: Build
-        run: dotnet build XIVDashPlugin/XIVDashPlugin.csproj -c Release --no-restore
-
-      - name: Package
         shell: pwsh
         run: |
-          $out = "XIVDashPlugin/bin/Release/net8.0-windows"
-          $files = @("XIVDashPlugin.dll", "XIVDashPlugin.json")
-          Compress-Archive -Path ($files | ForEach-Object { Join-Path $out $_ }) -DestinationPath XIVDashPlugin.zip
+          $libPath = "${{ github.workspace }}\dalamud-dist\"
+          dotnet build XIVDashPlugin/XIVDashPlugin.csproj `
+            -c Release `
+            --no-restore `
+            -p:DalamudLibPath="$libPath" `
+            -p:IsCI=true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: XIVDashPlugin
-          path: XIVDashPlugin.zip
+          path: XIVDashPlugin/bin/Release/net8.0-windows/XIVDashPlugin/
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: XIVDashPlugin.zip
+          files: XIVDashPlugin/bin/Release/net8.0-windows/XIVDashPlugin/*
           generate_release_notes: true
