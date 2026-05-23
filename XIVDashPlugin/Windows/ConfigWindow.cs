@@ -35,9 +35,18 @@ public sealed class ConfigWindow : Window
         ImGui.SetNextItemWidth(320);
         if (ImGui.InputText("##url", ref _url, 256))
         {
-            _config.XIVDashUrl = _url;
-            _config.Save();
+            if (Uri.TryCreate(_url, UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+            {
+                _config.XIVDashUrl = _url;
+                _config.Save();
+            }
         }
+
+        if (!string.IsNullOrWhiteSpace(_url) &&
+            (!Uri.TryCreate(_url, UriKind.Absolute, out var parsed) ||
+             (parsed.Scheme != Uri.UriSchemeHttps && parsed.Scheme != Uri.UriSchemeHttp)))
+            ImGui.TextColored(new Vector4(0.87f, 0.33f, 0.33f, 1f), "URL invalide (http:// ou https:// requis)");
 
         ImGui.Spacing();
         ImGui.Text("Token API (depuis Profil → Dalamud)");

@@ -34,7 +34,7 @@ public sealed class SyncService : IDisposable
             var body = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                return new SyncResult(false, $"Erreur {(int)response.StatusCode}: {body}", completedIds.Count, jobs.Count);
+                return new SyncResult(false, $"Erreur {(int)response.StatusCode}", completedIds.Count, jobs.Count);
 
             var jobWord = jobs.Count == 1 ? "job" : "jobs";
             var questWord = completedIds.Count == 1 ? "quête" : "quêtes";
