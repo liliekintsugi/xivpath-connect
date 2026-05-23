@@ -1,0 +1,12 @@
+{
+  "Author": "liliekintsugi",
+  "Name": "XIVDash Connect",
+  "InternalName": "XIVDashPlugin",
+  "AssemblyVersion": "1.0.0.0",
+  "Description": "Synchronise automatiquement ta progression FFXIV (quêtes, niveaux de jobs) avec XIVDash.",
+  "ApplicableVersion": "any",
+  "Tags": ["xivdash", "progression", "tracker"],
+  "DalamudApiLevel": 12,
+  "LoadRequiredState": 0,
+  "LoadSync": false
+}

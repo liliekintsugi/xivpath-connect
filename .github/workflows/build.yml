@@ -1,0 +1,44 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
+
+      - name: Build
+        run: dotnet build XIVDashPlugin/XIVDashPlugin.csproj -c Release --no-restore
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "XIVDashPlugin/bin/Release/net8.0-windows"
+          $files = @("XIVDashPlugin.dll", "XIVDashPlugin.json")
+          Compress-Archive -Path ($files | ForEach-Object { Join-Path $out $_ }) -DestinationPath XIVDashPlugin.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XIVDashPlugin
+          path: XIVDashPlugin.zip
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: XIVDashPlugin.zip
+          generate_release_notes: true
