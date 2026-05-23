@@ -73,28 +73,29 @@ public sealed class SyncService : IDisposable
         return jobs;
     }
 
-    // ExpArrayIndex from ClassJob sheet → abbreviation
-    // Shared class/job lines (e.g. GLD+PLD) have one ExpArrayIndex; we use the job name
+    // ExpArrayIndex from ClassJob sheet (verified via XIVAPI) → job abbreviation
+    // Class/job pairs share one index; we use the job name (PLD not GLA, etc.)
     private static Dictionary<int, string> GetClassJobMap() => new()
     {
-        [1]  = "PLD",  // GLD → PLD
-        [2]  = "MNK",  // PGL → MNK
-        [3]  = "WAR",  // MRD → WAR
+        [0]  = "MNK",  // PGL → MNK
+        [1]  = "PLD",  // GLA → PLD
+        [2]  = "WAR",  // MRD → WAR
+        [3]  = "BRD",  // ARC → BRD
         [4]  = "DRG",  // LNC → DRG
-        [5]  = "BRD",  // ARC → BRD
+        [5]  = "BLM",  // THM → BLM
         [6]  = "WHM",  // CNJ → WHM
-        [7]  = "BLM",  // THM → BLM
-        [8]  = "CRP",
-        [9]  = "BSM",
-        [10] = "ARM",
-        [11] = "GSM",
-        [12] = "LTW",
-        [13] = "WVR",
-        [14] = "ALC",
-        [15] = "CUL",
-        [16] = "MIN",
-        [17] = "BTN",
-        [18] = "FSH",
+        [7]  = "CRP",
+        [8]  = "BSM",
+        [9]  = "ARM",
+        [10] = "GSM",
+        [11] = "LTW",
+        [12] = "WVR",
+        [13] = "ALC",
+        [14] = "CUL",
+        [15] = "MIN",
+        [16] = "BTN",
+        [17] = "FSH",
+        [18] = "SMN",  // ACN → SMN (partage l'index avec SCH)
         [19] = "NIN",  // ROG → NIN
         [20] = "MCH",
         [21] = "DRK",
@@ -102,14 +103,12 @@ public sealed class SyncService : IDisposable
         [23] = "SAM",
         [24] = "RDM",
         [25] = "BLU",
-        [26] = "SMN",  // ACN → SMN (shares level with SCH)
-        [27] = "SCH",
-        [28] = "GNB",
-        [29] = "DNC",
-        [30] = "RPR",
-        [31] = "SGE",
-        [32] = "VPR",
-        [33] = "PCT",
+        [26] = "GNB",
+        [27] = "DNC",
+        [28] = "RPR",
+        [29] = "SGE",
+        [30] = "VPR",
+        [31] = "PCT",
     };
 
     public void Dispose() => _http.Dispose();
