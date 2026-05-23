@@ -57,7 +57,7 @@ jobs:
           $repo = Get-Content "repo.json" | ConvertFrom-Json
           $repo[0].AssemblyVersion = $manifest.AssemblyVersion
           $repo[0].LastUpdate = [int][double]::Parse((Get-Date -UFormat %s))
-          $repo | ConvertTo-Json -Depth 10 | Set-Content "repo.json"
+          $repo | ConvertTo-Json -Depth 10 -AsArray | Set-Content "repo.json"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add repo.json
