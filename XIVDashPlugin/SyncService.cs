@@ -2,7 +2,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Dalamud.Game.ClientState.Objects.SubKinds;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
@@ -12,46 +11,20 @@ public sealed class SyncService : IDisposable
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    // FFXIV quest IDs start at 65536 (0x10000). We scan up to ~72000 to cover all content.
     private const uint QuestIdMin = 65536;
     private const uint QuestIdMax = 72000;
 
     public event Action<string>? OnStatus;
 
-    public unsafe Task<SyncResult> SyncAsync(string token, string baseUrl)
+    public Task<SyncResult> SyncAsync(string token, string baseUrl)
     {
+        // Read game data synchronously on the calling (game) thread before going async
+        var completedIds = GetCompletedQuestIds();
+        var jobs = GetJobLevels();
+
         return Task.Run(async () =>
         {
-            // ── Completed quest IDs ──────────────────────────────────────────
-            var completedIds = new List<uint>();
-            for (uint id = QuestIdMin; id <= QuestIdMax; id++)
-            {
-                if (QuestManager.IsQuestComplete((ushort)(id & 0xFFFF)))
-                    completedIds.Add(id);
-            }
-
-            // ── Job levels via PlayerState ────────────────────────────────────
-            var jobs = new List<object>();
-            var playerState = PlayerState.Instance();
-            if (playerState != null)
-            {
-                // ClassJob RowId → abbrev mapping (covers all 33 jobs)
-                var classJobMap = GetClassJobMap();
-                foreach (var (rowId, abbrev) in classJobMap)
-                {
-                    var level = playerState->ClassJobLevelArray[rowId];
-                    if (level > 0)
-                        jobs.Add(new { abbrev, level = (int)level });
-                }
-            }
-
-            // ── POST to XIVDash ──────────────────────────────────────────────
-            var payload = new
-            {
-                completedQuestIds = completedIds,
-                jobs,
-            };
-
+            var payload = new { completedQuestIds = completedIds, jobs };
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -67,17 +40,48 @@ public sealed class SyncService : IDisposable
         });
     }
 
-    // ClassJob RowId (from the game's sheet) → abbreviation
-    // Covers all 33 combat/crafting/gathering jobs as of Dawntrail
+    private static unsafe List<uint> GetCompletedQuestIds()
+    {
+        var completedIds = new List<uint>();
+        for (uint id = QuestIdMin; id <= QuestIdMax; id++)
+        {
+            if (QuestManager.IsQuestComplete((ushort)(id & 0xFFFF)))
+                completedIds.Add(id);
+        }
+        return completedIds;
+    }
+
+    private static unsafe List<object> GetJobLevels()
+    {
+        var jobs = new List<object>();
+        var playerState = PlayerState.Instance();
+        if (playerState == null) return jobs;
+
+        // ClassJobLevels is indexed by ExpArrayIndex from the ClassJob sheet
+        var levels = playerState->ClassJobLevels;
+        foreach (var (expIdx, abbrev) in GetClassJobMap())
+        {
+            if (expIdx < levels.Length)
+            {
+                var level = levels[expIdx];
+                if (level > 0)
+                    jobs.Add(new { abbrev, level = (int)level });
+            }
+        }
+        return jobs;
+    }
+
+    // ExpArrayIndex from ClassJob sheet → abbreviation
+    // Shared class/job lines (e.g. GLD+PLD) have one ExpArrayIndex; we use the job name
     private static Dictionary<int, string> GetClassJobMap() => new()
     {
-        [1]  = "GLA", // Gladiateur (→PLD)
-        [2]  = "PGL", // Pugiliste (→MNK)
-        [3]  = "MRD", // Maraudeur (→WAR)
-        [4]  = "LNC", // Lancier (→DRG)
-        [5]  = "ARC", // Archer (→BRD)
-        [6]  = "CNJ", // Élémentaliste (→WHM)
-        [7]  = "THM", // Thaumaturge (→BLM)
+        [1]  = "PLD",  // GLD → PLD
+        [2]  = "MNK",  // PGL → MNK
+        [3]  = "WAR",  // MRD → WAR
+        [4]  = "DRG",  // LNC → DRG
+        [5]  = "BRD",  // ARC → BRD
+        [6]  = "WHM",  // CNJ → WHM
+        [7]  = "BLM",  // THM → BLM
         [8]  = "CRP",
         [9]  = "BSM",
         [10] = "ARM",
@@ -89,29 +93,21 @@ public sealed class SyncService : IDisposable
         [16] = "MIN",
         [17] = "BTN",
         [18] = "FSH",
-        [19] = "PLD",
-        [20] = "MNK",
-        [21] = "WAR",
-        [22] = "DRG",
-        [23] = "BRD",
-        [24] = "WHM",
-        [25] = "BLM",
-        [26] = "SMN",
+        [19] = "NIN",  // ROG → NIN
+        [20] = "MCH",
+        [21] = "DRK",
+        [22] = "AST",
+        [23] = "SAM",
+        [24] = "RDM",
+        [25] = "BLU",
+        [26] = "SMN",  // ACN → SMN (shares level with SCH)
         [27] = "SCH",
-        [28] = "ROG", // Surineur (→NIN)
-        [29] = "NIN",
-        [30] = "MCH",
-        [31] = "DRK",
-        [32] = "AST",
-        [33] = "SAM",
-        [34] = "RDM",
-        [35] = "BLU",
-        [36] = "GNB",
-        [37] = "DNC",
-        [38] = "RPR",
-        [39] = "SGE",
-        [40] = "VPR",
-        [41] = "PCT",
+        [28] = "GNB",
+        [29] = "DNC",
+        [30] = "RPR",
+        [31] = "SGE",
+        [32] = "VPR",
+        [33] = "PCT",
     };
 
     public void Dispose() => _http.Dispose();
