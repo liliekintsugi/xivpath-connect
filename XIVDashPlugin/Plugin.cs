@@ -44,6 +44,7 @@ public sealed class Plugin : IDalamudPlugin
 
         pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
         pluginInterface.UiBuilder.OpenConfigUi += OpenConfig;
+        pluginInterface.UiBuilder.OpenMainUi += OpenConfig;
 
         // Auto-sync on zone change
         _clientState.TerritoryChanged += OnTerritoryChanged;
@@ -87,6 +88,7 @@ public sealed class Plugin : IDalamudPlugin
         _commands.RemoveHandler("/xivdash");
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
+        PluginInterface.UiBuilder.OpenMainUi -= OpenConfig;
         _sync.Dispose();
     }
 }
