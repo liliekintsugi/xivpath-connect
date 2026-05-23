@@ -3,6 +3,7 @@
   "Name": "XIVDash Connect",
   "InternalName": "XIVDashPlugin",
   "AssemblyVersion": "1.0.0.0",
+  "Punchline": "Synchro ta progression FFXIV vers XIVDash.",
   "Description": "Synchronise automatiquement ta progression FFXIV (quêtes, niveaux de jobs) avec XIVDash.",
   "ApplicableVersion": "any",
   "Tags": ["xivdash", "progression", "tracker"],
