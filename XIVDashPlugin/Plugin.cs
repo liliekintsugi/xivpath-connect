@@ -24,8 +24,7 @@ public sealed class Plugin : IDalamudPlugin
         IDalamudPluginInterface pluginInterface,
         ICommandManager commands,
         IClientState clientState,
-        IPluginLog log,
-        IDataManager dataManager)
+        IPluginLog log)
     {
         PluginInterface = pluginInterface;
         _commands = commands;
@@ -33,7 +32,7 @@ public sealed class Plugin : IDalamudPlugin
         _log = log;
 
         _config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        _sync = new SyncService(dataManager);
+        _sync = new SyncService();
         _windowSystem = new WindowSystem("XIVDashPlugin");
         _configWindow = new ConfigWindow(_config, _sync);
         _windowSystem.AddWindow(_configWindow);
