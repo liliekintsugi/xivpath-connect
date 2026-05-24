@@ -3,6 +3,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using XIVDashPlugin.Windows;
+using Lumina.Excel.Sheets;
 
 namespace XIVDashPlugin;
 
@@ -24,7 +25,8 @@ public sealed class Plugin : IDalamudPlugin
         IDalamudPluginInterface pluginInterface,
         ICommandManager commands,
         IClientState clientState,
-        IPluginLog log)
+        IPluginLog log,
+        IDataManager dataManager)
     {
         PluginInterface = pluginInterface;
         _commands = commands;
@@ -32,7 +34,7 @@ public sealed class Plugin : IDalamudPlugin
         _log = log;
 
         _config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        _sync = new SyncService();
+        _sync = new SyncService(dataManager);
         _windowSystem = new WindowSystem("XIVDashPlugin");
         _configWindow = new ConfigWindow(_config, _sync);
         _windowSystem.AddWindow(_configWindow);
