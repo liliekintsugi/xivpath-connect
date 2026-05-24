@@ -73,18 +73,35 @@ public sealed class SyncService : IDisposable
 
     private static unsafe List<int> GetCompletedRouletteIds()
     {
-        var completed       = new List<int>();
-        var instanceContent = InstanceContent.Instance();
-        if (instanceContent == null) return completed;
+        var completed   = new List<int>();
+        var playerState = PlayerState.Instance();
+        if (playerState == null) return completed;
 
-        // ContentRoulette RowIds (verified against XIVAPI ContentRoulette sheet):
-        // 1=Leveling, 3=Main Scenario, 4=Guildhests, 5=Expert,
-        // 6=Trials, 9=Mentor, 15=Alliance Raids, 17=Normal Raids
-        byte[] rouletteIds = [1, 3, 4, 5, 6, 9, 15, 17];
-        foreach (var id in rouletteIds)
+        // _contentRouletteCompletion sits at offset 0x520 in PlayerState.
+        // Each byte is non-zero when the daily bonus for that roulette has been collected.
+        // IsRouletteComplete() skips index 0 (early exit on dl==0), so we read the array
+        // directly. CompletionArrayIndex → ContentRoulette RowId (XIVAPI verified):
+        //  0→1 (Leveling), 2→3 (Main Scenario), 3→4 (Guildhests),
+        //  4→5 (Expert), 5→6 (Trials), 8→9 (Mentor),
+        //  9→15 (Alliance Raids), 10→17 (Normal Raids)
+        byte* arr = (byte*)playerState + 0x520;
+
+        (byte idx, int rowId)[] map =
+        [
+            (0,  1),  // Leveling
+            (2,  3),  // Main Scenario
+            (3,  4),  // Guildhests
+            (4,  5),  // Expert
+            (5,  6),  // Trials
+            (8,  9),  // Mentor
+            (9,  15), // Alliance Raids
+            (10, 17), // Normal Raids
+        ];
+
+        foreach (var (idx, rowId) in map)
         {
-            if (instanceContent->IsRouletteComplete(id))
-                completed.Add(id);
+            if (arr[idx] != 0)
+                completed.Add(rowId);
         }
         return completed;
     }
