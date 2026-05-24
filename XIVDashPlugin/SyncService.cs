@@ -17,12 +17,13 @@ public sealed class SyncService : IDisposable
     public Task<SyncResult> SyncAsync(string token, string baseUrl)
     {
         // Read game data synchronously on the calling (game) thread before going async
-        var completedIds = GetCompletedQuestIds();
-        var jobs         = GetJobLevels();
+        var completedIds      = GetCompletedQuestIds();
+        var jobs              = GetJobLevels();
+        var completedRoulettes = GetCompletedRouletteIds();
 
         return Task.Run(async () =>
         {
-            var payload = new { completedQuestIds = completedIds, jobs };
+            var payload = new { completedQuestIds = completedIds, jobs, completedRouletteIds = completedRoulettes };
             var json    = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -31,11 +32,12 @@ public sealed class SyncService : IDisposable
             var response = await _http.PostAsync(url, content);
 
             if (!response.IsSuccessStatusCode)
-                return new SyncResult(false, $"Erreur {(int)response.StatusCode}", completedIds.Count, jobs.Count);
+                return new SyncResult(false, $"Erreur {(int)response.StatusCode}", completedIds.Count, jobs.Count, completedRoulettes.Count);
 
-            var questWord = completedIds.Count == 1 ? "quête" : "quêtes";
-            var jobWord   = jobs.Count == 1 ? "job" : "jobs";
-            return new SyncResult(true, $"Synchro OK — {completedIds.Count} {questWord}, {jobs.Count} {jobWord}", completedIds.Count, jobs.Count);
+            var questWord    = completedIds.Count == 1 ? "quête" : "quêtes";
+            var jobWord      = jobs.Count == 1 ? "job" : "jobs";
+            var rouletteWord = completedRoulettes.Count == 1 ? "roulette" : "roulettes";
+            return new SyncResult(true, $"Synchro OK — {completedIds.Count} {questWord}, {jobs.Count} {jobWord}, {completedRoulettes.Count} {rouletteWord}", completedIds.Count, jobs.Count, completedRoulettes.Count);
         });
     }
 
@@ -69,6 +71,22 @@ public sealed class SyncService : IDisposable
         return jobs;
     }
 
+    private static unsafe List<int> GetCompletedRouletteIds()
+    {
+        var completed       = new List<int>();
+        var instanceContent = InstanceContent.Instance();
+        if (instanceContent == null) return completed;
+
+        // ContentRoulette RowIds for standard daily roulettes
+        byte[] rouletteIds = [2, 3, 4, 5, 6, 7, 8, 9];
+        foreach (var id in rouletteIds)
+        {
+            if (instanceContent->IsRouletteComplete(id))
+                completed.Add(id);
+        }
+        return completed;
+    }
+
     // ExpArrayIndex → job abbreviation (verified via XIVAPI)
     private static Dictionary<int, string> GetClassJobMap() => new()
     {
@@ -85,4 +103,4 @@ public sealed class SyncService : IDisposable
     public void Dispose() => _http.Dispose();
 }
 
-public record SyncResult(bool Success, string Message, int QuestCount, int JobCount);
+public record SyncResult(bool Success, string Message, int QuestCount, int JobCount, int RouletteCount = 0);
