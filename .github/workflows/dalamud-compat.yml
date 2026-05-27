@@ -1,0 +1,62 @@
+name: Dalamud Compatibility Check
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # every Monday at 08:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5.2.0
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download latest Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://goatcorp.github.io/dalamud-distrib/latest.zip" `
+            -OutFile dalamud.zip
+          Expand-Archive dalamud.zip -DestinationPath dalamud-dist
+
+      - name: Restore
+        run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
+
+      - name: Build
+        id: build
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $libPath = "${{ github.workspace }}\dalamud-dist\"
+          dotnet build XIVDashPlugin/XIVDashPlugin.csproj `
+            -c Release `
+            --no-restore `
+            -p:DalamudLibPath="$libPath" `
+            -p:IsCI=true
+
+      - name: Open issue on failure
+        if: steps.build.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'dalamud-compat',
+              state: 'open',
+            });
+            if (existing.data.length > 0) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Build cassé avec la dernière version de Dalamud',
+              body: `Le build de compatibilité hebdomadaire a échoué avec la dernière distribution Dalamud.\n\nVoir le run : ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nCela signifie probablement qu'une mise à jour de l'API Dalamud a cassé le plugin. À investiguer.`,
+              labels: ['dalamud-compat'],
+            });
