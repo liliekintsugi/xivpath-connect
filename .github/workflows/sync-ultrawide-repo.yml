@@ -1,0 +1,73 @@
+name: Sync Ultrawide Cutscenes repo.json
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # daily at 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Sync AssemblyVersion from latest release
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import io
+          import json
+          import sys
+          import time
+          import urllib.request
+          import zipfile
+
+          zip_url = "https://github.com/liliekintsugi/Dalamud.FullscreenCutscenes/releases/latest/download/latest.zip"
+          with urllib.request.urlopen(zip_url) as resp:
+              zip_data = resp.read()
+
+          with zipfile.ZipFile(io.BytesIO(zip_data)) as archive:
+              manifest = json.loads(archive.read("UltrawideCutscenes.json"))
+
+          release_version = manifest["AssemblyVersion"]
+
+          with open("repo.json", encoding="utf-8") as handle:
+              repo = json.load(handle)
+
+          if not isinstance(repo, list):
+              print("ERROR: repo.json must be a JSON array", file=sys.stderr)
+              sys.exit(1)
+
+          entry = next((item for item in repo if item.get("InternalName") == "UltrawideCutscenes"), None)
+          if entry is None:
+              print("ERROR: UltrawideCutscenes entry not found in repo.json", file=sys.stderr)
+              sys.exit(1)
+
+          current_version = entry.get("AssemblyVersion")
+          if current_version == release_version:
+              print(f"repo.json already up to date ({release_version})")
+              sys.exit(0)
+
+          entry["AssemblyVersion"] = release_version
+          entry["LastUpdate"] = int(time.time())
+
+          with open("repo.json", "w", encoding="utf-8") as handle:
+              json.dump(repo, handle, indent=2, ensure_ascii=False)
+              handle.write("\n")
+
+          print(f"Updated UltrawideCutscenes: {current_version} -> {release_version}")
+          PY
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add repo.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: sync Ultrawide Cutscenes repo.json from latest release"
+            git push origin main
+          fi
