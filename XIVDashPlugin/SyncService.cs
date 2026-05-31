@@ -12,26 +12,34 @@ public sealed class SyncService : IDisposable
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
-    private const uint QuestIdMin = 65536;
-    private const uint QuestIdMax = 72000;
+    private const uint  QuestIdMin = 65536;
+    private const uint  QuestIdMax = 72000;
+    private const ushort CfcIdMax  = 1200;   // ContentFinderCondition upper bound
 
     public Task<SyncResult> SyncAsync(string token, string baseUrl)
     {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
-            return Task.FromResult(new SyncResult(false, "URL invalide (HTTPS requis)", 0, 0, 0));
+            return Task.FromResult(new SyncResult(false, "URL invalide (HTTPS requis)", 0, 0, 0, 0));
 
-        var completedIds      = GetCompletedQuestIds();
-        var jobs              = GetJobLevels();
+        var completedIds       = GetCompletedQuestIds();
+        var jobs               = GetJobLevels();
         var completedRoulettes = GetCompletedRouletteIds();
+        var completedContent   = GetCompletedContentIds();
 
         return Task.Run(async () =>
         {
             if (!await _syncLock.WaitAsync(0))
-                return new SyncResult(false, "Synchro déjà en cours", 0, 0, 0);
+                return new SyncResult(false, "Synchro déjà en cours", 0, 0, 0, 0);
 
             try
             {
-                var payload = new { completedQuestIds = completedIds, jobs, completedRouletteIds = completedRoulettes };
+                var payload = new
+                {
+                    completedQuestIds    = completedIds,
+                    jobs,
+                    completedRouletteIds = completedRoulettes,
+                    completedContentIds  = completedContent,
+                };
                 var json    = JsonSerializer.Serialize(payload);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl.TrimEnd('/') + "/api/dalamud/sync");
@@ -41,12 +49,15 @@ public sealed class SyncService : IDisposable
                 var response = await _http.SendAsync(request);
 
                 if (!response.IsSuccessStatusCode)
-                    return new SyncResult(false, $"Erreur {(int)response.StatusCode}", completedIds.Count, jobs.Count, completedRoulettes.Count);
+                    return new SyncResult(false, $"Erreur {(int)response.StatusCode}",
+                        completedIds.Count, jobs.Count, completedRoulettes.Count, completedContent.Count);
 
-                var questWord    = completedIds.Count == 1 ? "quête" : "quêtes";
-                var jobWord      = jobs.Count == 1 ? "job" : "jobs";
-                var rouletteWord = completedRoulettes.Count == 1 ? "roulette" : "roulettes";
-                return new SyncResult(true, $"Synchro OK — {completedIds.Count} {questWord}, {jobs.Count} {jobWord}, {completedRoulettes.Count} {rouletteWord}", completedIds.Count, jobs.Count, completedRoulettes.Count);
+                var qWord = completedIds.Count     == 1 ? "quête"   : "quêtes";
+                var jWord = jobs.Count             == 1 ? "job"     : "jobs";
+                var cWord = completedContent.Count == 1 ? "contenu" : "contenus";
+                return new SyncResult(true,
+                    $"Synchro OK — {completedIds.Count} {qWord}, {jobs.Count} {jWord}, {completedContent.Count} {cWord}",
+                    completedIds.Count, jobs.Count, completedRoulettes.Count, completedContent.Count);
             }
             finally
             {
@@ -91,36 +102,51 @@ public sealed class SyncService : IDisposable
         var playerState = PlayerState.Instance();
         if (playerState == null) return completed;
 
-        // _contentRouletteCompletion sits at offset 0x520 in PlayerState.
-        // Each byte is non-zero when the daily bonus for that roulette has been collected.
-        // IsRouletteComplete() skips index 0 (early exit on dl==0), so we read the array
-        // directly. CompletionArrayIndex → ContentRoulette RowId (XIVAPI verified):
-        //  0→1 (Leveling), 2→3 (Main Scenario), 3→4 (Guildhests),
-        //  4→5 (Expert), 5→6 (Trials), 8→9 (Mentor),
-        //  9→15 (Alliance Raids), 10→17 (Normal Raids)
         byte* arr = (byte*)playerState + 0x520;
 
         (byte idx, int rowId)[] map =
         [
-            (0,  1),  // Leveling
-            (2,  3),  // Main Scenario
-            (3,  4),  // Guildhests
-            (4,  5),  // Expert
-            (5,  6),  // Trials
-            (8,  9),  // Mentor
-            (9,  15), // Alliance Raids
-            (10, 17), // Normal Raids
+            (0,  1),   // Leveling
+            (2,  3),   // Main Scenario
+            (3,  4),   // Guildhests
+            (4,  5),   // Expert
+            (5,  6),   // Trials
+            (8,  9),   // Mentor
+            (9,  15),  // Alliance Raids
+            (10, 17),  // Normal Raids
         ];
 
         foreach (var (idx, rowId) in map)
-        {
             if (arr[idx] != 0)
                 completed.Add(rowId);
+
+        return completed;
+    }
+
+    /// <summary>
+    /// Retourne les IDs ContentFinderCondition (row IDs XIVAPI) des instances
+    /// complétées au moins une fois.
+    ///
+    /// UIState.IsUnlockLinkUnlocked(id) renvoie true quand l'entrée correspondante
+    /// du Duty Finder a été franchie au moins une fois (ce qui déverrouille son
+    /// "unlock link" dans la table de flags du jeu).
+    ///
+    /// Les IDs 1–1200 couvrent tout le contenu jusqu'à Dawntrail inclus.
+    /// </summary>
+    private static unsafe List<ushort> GetCompletedContentIds()
+    {
+        var completed = new List<ushort>();
+        var uiState   = UIState.Instance();
+        if (uiState == null) return completed;
+
+        for (ushort cfcId = 1; cfcId <= CfcIdMax; cfcId++)
+        {
+            if (uiState->IsUnlockLinkUnlocked(cfcId))
+                completed.Add(cfcId);
         }
         return completed;
     }
 
-    // ExpArrayIndex → job abbreviation (verified via XIVAPI)
     private static Dictionary<int, string> GetClassJobMap() => new()
     {
         [0]  = "MNK",  [1]  = "PLD",  [2]  = "WAR",  [3]  = "BRD",
@@ -140,4 +166,10 @@ public sealed class SyncService : IDisposable
     }
 }
 
-public record SyncResult(bool Success, string Message, int QuestCount, int JobCount, int RouletteCount = 0);
+public record SyncResult(
+    bool   Success,
+    string Message,
+    int    QuestCount,
+    int    JobCount,
+    int    RouletteCount = 0,
+    int    ContentCount  = 0);
