@@ -2,7 +2,7 @@
   "Author": "liliekintsugi",
   "Name": "XIVPath Connect",
   "InternalName": "XIVPathPlugin",
-  "AssemblyVersion": "2.1.6.0",
+  "AssemblyVersion": "2.1.7.0",
   "Punchline": "Synchro ta progression FFXIV vers XIVPath.",
   "Description": "Synchronise automatiquement ta progression FFXIV vers XIVPath : niveaux de jobs, quêtes MSQ, donjons/défis/raids accomplis. Synchro auto au changement de zone.",
   "ApplicableVersion": "any",

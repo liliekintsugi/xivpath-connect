@@ -22,6 +22,7 @@ public sealed class Plugin : IDalamudPlugin
     private DateOnly _playtimeDay = DateOnly.FromDateTime(DateTime.UtcNow);
     private int _dailyPlaytimeSec;
     private int _zoneChangesThisSession;
+    private int _manualSyncCountThisSession;
 
     public Plugin(
         IDalamudPluginInterface pluginInterface,
@@ -52,6 +53,9 @@ public sealed class Plugin : IDalamudPlugin
 
         _clientState.TerritoryChanged += OnTerritoryChanged;
         _clientState.Login += OnLogin;
+
+        if (_clientState.IsLoggedIn)
+            StartSession();
     }
 
     private void OnCommand(string command, string args) => OpenConfig();
@@ -78,6 +82,7 @@ public sealed class Plugin : IDalamudPlugin
         _sessionStartedAtUtc = now;
         _lastPlaytimeTickUtc = now;
         _zoneChangesThisSession = 0;
+        _manualSyncCountThisSession = 0;
     }
 
     private void EnsureDailyCounter(DateTimeOffset now)
@@ -107,8 +112,13 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (!_config.EnableSessionTelemetry) return null;
 
+        if (!_sessionStartedAtUtc.HasValue)
+            StartSession();
+
         var now = DateTimeOffset.UtcNow;
         UpdateDailyPlaytime(now);
+        if (string.Equals(reason, "manual", StringComparison.OrdinalIgnoreCase))
+            _manualSyncCountThisSession++;
         var sessionDurationSec = _sessionStartedAtUtc.HasValue
             ? (int)Math.Max(0, (now - _sessionStartedAtUtc.Value).TotalSeconds)
             : 0;
@@ -119,7 +129,8 @@ public sealed class Plugin : IDalamudPlugin
             SessionStartedAtUtc: _sessionStartedAtUtc?.UtcDateTime.ToString("O"),
             SessionDurationSec: Math.Min(86_400, sessionDurationSec),
             DailyPlaytimeSec: _dailyPlaytimeSec,
-            ZoneChanges: _zoneChangesThisSession);
+            ZoneChanges: _zoneChangesThisSession,
+            ManualSyncCount: _manualSyncCountThisSession);
     }
 
     private async Task TriggerSync(string reason)

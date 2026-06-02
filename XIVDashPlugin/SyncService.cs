@@ -310,7 +310,8 @@ public record SessionTelemetry(
     [property: JsonPropertyName("sessionStartedAtUtc")] string? SessionStartedAtUtc,
     [property: JsonPropertyName("sessionDurationSec")] int SessionDurationSec,
     [property: JsonPropertyName("dailyPlaytimeSec")] int DailyPlaytimeSec,
-    [property: JsonPropertyName("zoneChanges")] int ZoneChanges
+    [property: JsonPropertyName("zoneChanges")] int ZoneChanges,
+    [property: JsonPropertyName("manualSyncCount")] int ManualSyncCount
 );
 
 public sealed class SyncApiResponse
