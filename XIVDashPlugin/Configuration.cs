@@ -13,5 +13,8 @@ public class Configuration : IPluginConfiguration
     // Auto-sync on zone change (recommended)
     public bool AutoSyncOnZoneChange { get; set; } = true;
 
+    // Optional telemetry for recommendation quality (session duration/playtime)
+    public bool EnableSessionTelemetry { get; set; } = false;
+
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

@@ -8,17 +8,19 @@ public sealed class ConfigWindow : Window
 {
     private readonly Configuration _config;
     private readonly SyncService _sync;
+    private readonly Func<SessionTelemetry?> _telemetryProvider;
 
     private string _url = string.Empty;
     private string _token = string.Empty;
     private string _status = string.Empty;
     private volatile bool _syncing;
 
-    public ConfigWindow(Configuration config, SyncService sync)
+    public ConfigWindow(Configuration config, SyncService sync, Func<SessionTelemetry?> telemetryProvider)
         : base("XIVPath Connect###XIVPathConfig", ImGuiWindowFlags.AlwaysAutoResize)
     {
         _config = config;
         _sync = sync;
+        _telemetryProvider = telemetryProvider;
         _url = config.XIVPathUrl;
         _token = config.ApiToken;
     }
@@ -63,6 +65,14 @@ public sealed class ConfigWindow : Window
             _config.Save();
         }
 
+        var telemetryEnabled = _config.EnableSessionTelemetry;
+        if (ImGui.Checkbox("Envoyer télémétrie de session (désactivable)", ref telemetryEnabled))
+        {
+            _config.EnableSessionTelemetry = telemetryEnabled;
+            _config.Save();
+        }
+        ImGui.TextDisabled("Inclut durée de session, temps de jeu journalier et changements de zone.");
+
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
@@ -91,7 +101,8 @@ public sealed class ConfigWindow : Window
         _status = "Synchronisation en cours…";
         try
         {
-            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl);
+            var telemetry = _telemetryProvider();
+            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl, telemetry);
             _status = result.Message;
         }
         catch (Exception ex)

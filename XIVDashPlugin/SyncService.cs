@@ -28,7 +28,7 @@ public sealed class SyncService : IDisposable
         _dataManager = dataManager;
     }
 
-    public Task<SyncResult> SyncAsync(string token, string baseUrl)
+    public Task<SyncResult> SyncAsync(string token, string baseUrl, SessionTelemetry? telemetry = null)
     {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             return Task.FromResult(new SyncResult(false, "URL invalide (HTTPS requis)", 0, 0, 0, 0));
@@ -52,6 +52,7 @@ public sealed class SyncService : IDisposable
                     completedTrials = completedContent.Trials,
                     completedRaids = completedContent.Raids,
                     completedGuildhests = completedContent.Guildhests,
+                    telemetry,
                 };
                 var json = JsonSerializer.Serialize(payload);
                 using var bodyContent = new StringContent(json, Encoding.UTF8, "application/json");
@@ -302,6 +303,15 @@ public record SyncResult(
     int    TrialCount = 0,
     int    RaidCount = 0,
     int    GuildhestCount = 0);
+
+public record SessionTelemetry(
+    string SyncReason,
+    string? PluginVersion,
+    string? SessionStartedAtUtc,
+    int SessionDurationSec,
+    int DailyPlaytimeSec,
+    int ZoneChanges
+);
 
 public sealed class SyncApiResponse
 {

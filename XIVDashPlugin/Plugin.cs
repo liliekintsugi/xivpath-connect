@@ -17,6 +17,11 @@ public sealed class Plugin : IDalamudPlugin
     private readonly SyncService _sync;
     private readonly WindowSystem _windowSystem;
     private readonly ConfigWindow _configWindow;
+    private DateTimeOffset? _sessionStartedAtUtc;
+    private DateTimeOffset _lastPlaytimeTickUtc;
+    private DateOnly _playtimeDay = DateOnly.FromDateTime(DateTime.UtcNow);
+    private int _dailyPlaytimeSec;
+    private int _zoneChangesThisSession;
 
     public Plugin(
         IDalamudPluginInterface pluginInterface,
@@ -33,7 +38,7 @@ public sealed class Plugin : IDalamudPlugin
         _config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         _sync = new SyncService(dataManager);
         _windowSystem = new WindowSystem("XIVPathPlugin");
-        _configWindow = new ConfigWindow(_config, _sync);
+        _configWindow = new ConfigWindow(_config, _sync, () => BuildTelemetry("manual"));
         _windowSystem.AddWindow(_configWindow);
 
         _commands.AddHandler("/xivpath", new CommandInfo(OnCommand)
@@ -54,14 +59,67 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnLogin()
     {
+        StartSession();
         if (!_config.AutoSyncOnZoneChange || string.IsNullOrWhiteSpace(_config.ApiToken)) return;
-        _ = TriggerSync("connexion");
+        _ = TriggerSync("login");
     }
 
     private void OnTerritoryChanged(uint territory)
     {
+        _zoneChangesThisSession++;
         if (!_config.AutoSyncOnZoneChange || string.IsNullOrWhiteSpace(_config.ApiToken)) return;
-        _ = TriggerSync($"zone #{territory}");
+        _ = TriggerSync($"zone:{territory}");
+    }
+
+    private void StartSession()
+    {
+        var now = DateTimeOffset.UtcNow;
+        EnsureDailyCounter(now);
+        _sessionStartedAtUtc = now;
+        _lastPlaytimeTickUtc = now;
+        _zoneChangesThisSession = 0;
+    }
+
+    private void EnsureDailyCounter(DateTimeOffset now)
+    {
+        var currentDay = DateOnly.FromDateTime(now.UtcDateTime);
+        if (currentDay == _playtimeDay) return;
+        _playtimeDay = currentDay;
+        _dailyPlaytimeSec = 0;
+    }
+
+    private void UpdateDailyPlaytime(DateTimeOffset now)
+    {
+        EnsureDailyCounter(now);
+        if (_lastPlaytimeTickUtc == default)
+        {
+            _lastPlaytimeTickUtc = now;
+            return;
+        }
+
+        var deltaSec = (int)Math.Max(0, (now - _lastPlaytimeTickUtc).TotalSeconds);
+        if (deltaSec > 0)
+            _dailyPlaytimeSec = Math.Min(86_400, _dailyPlaytimeSec + deltaSec);
+        _lastPlaytimeTickUtc = now;
+    }
+
+    private SessionTelemetry? BuildTelemetry(string reason)
+    {
+        if (!_config.EnableSessionTelemetry) return null;
+
+        var now = DateTimeOffset.UtcNow;
+        UpdateDailyPlaytime(now);
+        var sessionDurationSec = _sessionStartedAtUtc.HasValue
+            ? (int)Math.Max(0, (now - _sessionStartedAtUtc.Value).TotalSeconds)
+            : 0;
+
+        return new SessionTelemetry(
+            SyncReason: reason,
+            PluginVersion: PluginInterface.Manifest.AssemblyVersion,
+            SessionStartedAtUtc: _sessionStartedAtUtc?.UtcDateTime.ToString("O"),
+            SessionDurationSec: Math.Min(86_400, sessionDurationSec),
+            DailyPlaytimeSec: _dailyPlaytimeSec,
+            ZoneChanges: _zoneChangesThisSession);
     }
 
     private async Task TriggerSync(string reason)
@@ -69,7 +127,8 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             _log.Debug($"[XIVPath] Déclenchement synchro ({reason})");
-            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl);
+            var telemetry = BuildTelemetry(reason);
+            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl, telemetry);
             _log.Information($"[XIVPath] {result.Message}");
         }
         catch (Exception ex)
