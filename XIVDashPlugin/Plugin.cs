@@ -115,7 +115,7 @@ public sealed class Plugin : IDalamudPlugin
 
         return new SessionTelemetry(
             SyncReason: reason,
-            PluginVersion: PluginInterface.Manifest.AssemblyVersion,
+            PluginVersion: PluginInterface.Manifest.AssemblyVersion?.ToString(),
             SessionStartedAtUtc: _sessionStartedAtUtc?.UtcDateTime.ToString("O"),
             SessionDurationSec: Math.Min(86_400, sessionDurationSec),
             DailyPlaytimeSec: _dailyPlaytimeSec,
