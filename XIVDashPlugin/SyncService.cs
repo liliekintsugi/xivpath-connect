@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -60,20 +61,32 @@ public sealed class SyncService : IDisposable
                 request.Content = bodyContent;
 
                 var response = await _http.SendAsync(request);
+                var responseText = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
-                    return new SyncResult(false, $"Erreur {(int)response.StatusCode}",
+                    return new SyncResult(false, BuildHttpErrorMessage(response, responseText),
                         completedQuests.Count, jobs.Count,
                         completedContent.Dungeons.Count, completedContent.Trials.Count, completedContent.Raids.Count, completedContent.Guildhests.Count);
 
-                var qWord = completedQuests.Count == 1 ? "quête" : "quêtes";
-                var jWord = jobs.Count == 1 ? "job" : "jobs";
-                var contentCount = completedContent.Dungeons.Count + completedContent.Trials.Count + completedContent.Raids.Count + completedContent.Guildhests.Count;
-                var cWord = contentCount == 1 ? "contenu" : "contenus";
+                var parsed = ParseSyncSummary(responseText);
+                if (parsed == null)
+                {
+                    var sentContentCount = completedContent.Dungeons.Count + completedContent.Trials.Count + completedContent.Raids.Count + completedContent.Guildhests.Count;
+                    return new SyncResult(true,
+                        $"Synchro OK (résumé serveur indisponible) — envoyé: {completedQuests.Count} quêtes, {jobs.Count} jobs, {sentContentCount} contenus",
+                        completedQuests.Count, jobs.Count,
+                        completedContent.Dungeons.Count, completedContent.Trials.Count, completedContent.Raids.Count, completedContent.Guildhests.Count);
+                }
+
+                var effectiveContentCount = parsed.DungeonsMarked + parsed.TrialsMarked + parsed.RaidsMarked + parsed.GuildhestsMarked;
+                var qWord = parsed.QuestsMarked == 1 ? "quête" : "quêtes";
+                var jWord = parsed.JobsUpdated == 1 ? "job" : "jobs";
+                var cWord = effectiveContentCount == 1 ? "contenu" : "contenus";
+                var ignoredInfo = parsed.SkippedUnknown > 0 ? $" (ignorés: {parsed.SkippedUnknown})" : string.Empty;
                 return new SyncResult(true,
-                    $"Synchro OK — {completedQuests.Count} {qWord}, {jobs.Count} {jWord}, {contentCount} {cWord}",
-                    completedQuests.Count, jobs.Count,
-                    completedContent.Dungeons.Count, completedContent.Trials.Count, completedContent.Raids.Count, completedContent.Guildhests.Count);
+                    $"Synchro OK — pris en compte: {parsed.QuestsMarked} {qWord}, {parsed.JobsUpdated} {jWord}, {effectiveContentCount} {cWord}{ignoredInfo}",
+                    parsed.QuestsMarked, parsed.JobsUpdated,
+                    parsed.DungeonsMarked, parsed.TrialsMarked, parsed.RaidsMarked, parsed.GuildhestsMarked);
             }
             finally
             {
@@ -227,6 +240,45 @@ public sealed class SyncService : IDisposable
         _ => 0,
     };
 
+    private static string BuildHttpErrorMessage(HttpResponseMessage response, string responseText)
+    {
+        if (string.IsNullOrWhiteSpace(responseText))
+            return $"Erreur {(int)response.StatusCode}";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseText);
+            if (doc.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(error.GetString()))
+                return $"Erreur {(int)response.StatusCode} — {error.GetString()}";
+        }
+        catch (JsonException)
+        {
+            // Ignore parse errors and fallback to status code only.
+        }
+
+        return $"Erreur {(int)response.StatusCode}";
+    }
+
+    private static SyncSummary? ParseSyncSummary(string responseText)
+    {
+        if (string.IsNullOrWhiteSpace(responseText))
+            return null;
+
+        try
+        {
+            var payload = JsonSerializer.Deserialize<SyncApiResponse>(responseText);
+            if (payload?.Summary == null)
+                return null;
+            return payload.Summary;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     public void Dispose()
     {
         _http.Dispose();
@@ -250,3 +302,33 @@ public record SyncResult(
     int    TrialCount = 0,
     int    RaidCount = 0,
     int    GuildhestCount = 0);
+
+public sealed class SyncApiResponse
+{
+    [JsonPropertyName("summary")]
+    public SyncSummary? Summary { get; init; }
+}
+
+public sealed class SyncSummary
+{
+    [JsonPropertyName("jobsUpdated")]
+    public int JobsUpdated { get; init; }
+
+    [JsonPropertyName("questsMarked")]
+    public int QuestsMarked { get; init; }
+
+    [JsonPropertyName("dungeonsMarked")]
+    public int DungeonsMarked { get; init; }
+
+    [JsonPropertyName("trialsMarked")]
+    public int TrialsMarked { get; init; }
+
+    [JsonPropertyName("raidsMarked")]
+    public int RaidsMarked { get; init; }
+
+    [JsonPropertyName("guildhestsMarked")]
+    public int GuildhestsMarked { get; init; }
+
+    [JsonPropertyName("skippedUnknown")]
+    public int SkippedUnknown { get; init; }
+}
