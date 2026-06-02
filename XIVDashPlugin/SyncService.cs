@@ -7,7 +7,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
 
-namespace XIVDashPlugin;
+namespace XIVPathPlugin;
 
 public sealed class SyncService : IDisposable
 {
@@ -19,8 +19,8 @@ public sealed class SyncService : IDisposable
     private const uint QuestIdMax = 72000;
 
     // ContentType IDs we care about for completion tracking
-    // 2=Dungeons  4=Trials  5=Raids (normal + alliance)  28=Ultimate Raids
-    private static readonly HashSet<uint> RelevantContentTypes = [2, 4, 5, 28];
+    // 2=Dungeons  3=Guildhests  4=Trials  5=Raids (normal + alliance)  28=Ultimate
+    private static readonly HashSet<uint> RelevantContentTypes = [2, 3, 4, 5, 28];
 
     public SyncService(IDataManager dataManager)
     {
@@ -32,10 +32,9 @@ public sealed class SyncService : IDisposable
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             return Task.FromResult(new SyncResult(false, "URL invalide (HTTPS requis)", 0, 0, 0, 0));
 
-        var completedIds       = GetCompletedQuestIds();
-        var jobs               = GetJobLevels();
-        var completedRoulettes = GetCompletedRouletteIds();
-        var completedContent   = GetCompletedContentIds();
+        var completedQuests = GetCompletedQuestIds();
+        var jobs = GetJobLevels();
+        var completedContent = GetCompletedContentIdsByType();
 
         return Task.Run(async () =>
         {
@@ -46,30 +45,35 @@ public sealed class SyncService : IDisposable
             {
                 var payload = new
                 {
-                    completedQuestIds    = completedIds,
+                    completedQuests = completedQuests,
                     jobs,
-                    completedRouletteIds = completedRoulettes,
-                    completedContentIds  = completedContent,
+                    completedDungeons = completedContent.Dungeons,
+                    completedTrials = completedContent.Trials,
+                    completedRaids = completedContent.Raids,
+                    completedGuildhests = completedContent.Guildhests,
                 };
                 var json = JsonSerializer.Serialize(payload);
-                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var bodyContent = new StringContent(json, Encoding.UTF8, "application/json");
                 using var request = new HttpRequestMessage(HttpMethod.Post,
-                    baseUrl.TrimEnd('/') + "/api/dalamud/sync");
+                    baseUrl.TrimEnd('/') + "/api/sync/dalamud");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                request.Content = content;
+                request.Content = bodyContent;
 
                 var response = await _http.SendAsync(request);
 
                 if (!response.IsSuccessStatusCode)
                     return new SyncResult(false, $"Erreur {(int)response.StatusCode}",
-                        completedIds.Count, jobs.Count, completedRoulettes.Count, completedContent.Count);
+                        completedQuests.Count, jobs.Count,
+                        completedContent.Dungeons.Count, completedContent.Trials.Count, completedContent.Raids.Count, completedContent.Guildhests.Count);
 
-                var qWord = completedIds.Count     == 1 ? "quête"   : "quêtes";
-                var jWord = jobs.Count             == 1 ? "job"     : "jobs";
-                var cWord = completedContent.Count == 1 ? "contenu" : "contenus";
+                var qWord = completedQuests.Count == 1 ? "quête" : "quêtes";
+                var jWord = jobs.Count == 1 ? "job" : "jobs";
+                var contentCount = completedContent.Dungeons.Count + completedContent.Trials.Count + completedContent.Raids.Count + completedContent.Guildhests.Count;
+                var cWord = contentCount == 1 ? "contenu" : "contenus";
                 return new SyncResult(true,
-                    $"Synchro OK — {completedIds.Count} {qWord}, {jobs.Count} {jWord}, {completedContent.Count} {cWord}",
-                    completedIds.Count, jobs.Count, completedRoulettes.Count, completedContent.Count);
+                    $"Synchro OK — {completedQuests.Count} {qWord}, {jobs.Count} {jWord}, {contentCount} {cWord}",
+                    completedQuests.Count, jobs.Count,
+                    completedContent.Dungeons.Count, completedContent.Trials.Count, completedContent.Raids.Count, completedContent.Guildhests.Count);
             }
             finally
             {
@@ -99,28 +103,14 @@ public sealed class SyncService : IDisposable
             if (expIdx < levels.Length)
             {
                 var level = levels[expIdx];
-                if (level > 0) jobs.Add(new { abbrev, level = (int)level });
+                if (level > 0)
+                {
+                    var jobId = ResolveLegacyAbbrevToJobId(abbrev);
+                    if (jobId > 0) jobs.Add(new { id = jobId, level = (int)level });
+                }
             }
         }
         return jobs;
-    }
-
-    private static unsafe List<int> GetCompletedRouletteIds()
-    {
-        var completed   = new List<int>();
-        var playerState = PlayerState.Instance();
-        if (playerState == null) return completed;
-
-        byte* arr = (byte*)playerState + 0x520;
-        (byte idx, int rowId)[] map =
-        [
-            (0,  1), (2, 3),  (3,  4), (4,  5),
-            (5,  6), (8, 9),  (9, 15), (10, 17),
-        ];
-        foreach (var (idx, rowId) in map)
-            if (arr[idx] != 0) completed.Add(rowId);
-
-        return completed;
     }
 
     /// <summary>
@@ -133,12 +123,15 @@ public sealed class SyncService : IDisposable
     /// of the Ancients a CFC=92 mais InstanceContent=30001). On obtient ce mapping
     /// via Lumina : ContentFinderCondition.Content.RowId.
     /// </summary>
-    private unsafe List<uint> GetCompletedContentIds()
+    private unsafe CompletedContentIds GetCompletedContentIdsByType()
     {
-        var completed = new List<uint>();
+        var dungeons = new List<uint>();
+        var trials = new List<uint>();
+        var raids = new List<uint>();
+        var guildhests = new List<uint>();
 
         var cfcSheet = _dataManager.GetExcelSheet<ContentFinderCondition>();
-        if (cfcSheet == null) return completed;
+        if (cfcSheet == null) return new CompletedContentIds(dungeons, trials, raids, guildhests);
 
         foreach (var row in cfcSheet)
         {
@@ -152,10 +145,27 @@ public sealed class SyncService : IDisposable
             var instanceContentId = row.Content.RowId;
             if (instanceContentId == 0) continue;
 
-            if (UIState.IsInstanceContentCompleted(instanceContentId))
-                completed.Add(row.RowId);   // on envoie le CFC row ID = xivapi_id
+            if (!UIState.IsInstanceContentCompleted(instanceContentId)) continue;
+
+            // on envoie le CFC row ID = xivapi_id
+            switch (row.ContentType.RowId)
+            {
+                case 2:
+                    dungeons.Add(row.RowId);
+                    break;
+                case 3:
+                    guildhests.Add(row.RowId);
+                    break;
+                case 4:
+                    trials.Add(row.RowId);
+                    break;
+                case 5:
+                case 28:
+                    raids.Add(row.RowId);
+                    break;
+            }
         }
-        return completed;
+        return new CompletedContentIds(dungeons, trials, raids, guildhests);
     }
 
     private static Dictionary<int, string> GetClassJobMap() => new()
@@ -170,6 +180,53 @@ public sealed class SyncService : IDisposable
         [28] = "RPR", [29] = "SGE", [30] = "VPR", [31] = "PCT",
     };
 
+    private static int ResolveLegacyAbbrevToJobId(string abbrev) => abbrev switch
+    {
+        "GLA" => 1,
+        "PGL" => 2,
+        "MRD" => 3,
+        "LNC" => 4,
+        "ARC" => 5,
+        "CNJ" => 6,
+        "THM" => 7,
+        "CRP" => 8,
+        "BSM" => 9,
+        "ARM" => 10,
+        "GSM" => 11,
+        "LTW" => 12,
+        "WVR" => 13,
+        "ALC" => 14,
+        "CUL" => 15,
+        "MIN" => 16,
+        "BTN" => 17,
+        "FSH" => 18,
+        "PLD" => 19,
+        "MNK" => 20,
+        "WAR" => 21,
+        "DRG" => 22,
+        "BRD" => 23,
+        "WHM" => 24,
+        "BLM" => 25,
+        "ACN" => 26,
+        "SMN" => 27,
+        "SCH" => 28,
+        "ROG" => 29,
+        "NIN" => 30,
+        "MCH" => 31,
+        "DRK" => 32,
+        "AST" => 33,
+        "SAM" => 34,
+        "RDM" => 35,
+        "BLU" => 36,
+        "GNB" => 37,
+        "DNC" => 38,
+        "RPR" => 39,
+        "SGE" => 40,
+        "VPR" => 41,
+        "PCT" => 42,
+        _ => 0,
+    };
+
     public void Dispose()
     {
         _http.Dispose();
@@ -177,10 +234,19 @@ public sealed class SyncService : IDisposable
     }
 }
 
+public record CompletedContentIds(
+    List<uint> Dungeons,
+    List<uint> Trials,
+    List<uint> Raids,
+    List<uint> Guildhests
+);
+
 public record SyncResult(
     bool   Success,
     string Message,
     int    QuestCount,
     int    JobCount,
-    int    RouletteCount = 0,
-    int    ContentCount  = 0);
+    int    DungeonCount = 0,
+    int    TrialCount = 0,
+    int    RaidCount = 0,
+    int    GuildhestCount = 0);

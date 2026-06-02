@@ -2,7 +2,7 @@ using System.Numerics;
 using Dalamud.Interface.Windowing;
 using Dalamud.Bindings.ImGui;
 
-namespace XIVDashPlugin.Windows;
+namespace XIVPathPlugin.Windows;
 
 public sealed class ConfigWindow : Window
 {
@@ -15,29 +15,29 @@ public sealed class ConfigWindow : Window
     private volatile bool _syncing;
 
     public ConfigWindow(Configuration config, SyncService sync)
-        : base("XIVDash Connect###XIVDashConfig", ImGuiWindowFlags.AlwaysAutoResize)
+        : base("XIVPath Connect###XIVPathConfig", ImGuiWindowFlags.AlwaysAutoResize)
     {
         _config = config;
         _sync = sync;
-        _url = config.XIVDashUrl;
+        _url = config.XIVPathUrl;
         _token = config.ApiToken;
     }
 
     public override void Draw()
     {
-        ImGui.TextColored(new Vector4(0.78f, 0.66f, 0.29f, 1f), "XIVDash Connect");
+        ImGui.TextColored(new Vector4(0.78f, 0.66f, 0.29f, 1f), "XIVPath Connect");
         ImGui.SameLine();
         ImGui.TextDisabled("v1.0");
         ImGui.Separator();
         ImGui.Spacing();
 
-        ImGui.Text("URL XIVDash");
+        ImGui.Text("URL XIVPath");
         ImGui.SetNextItemWidth(320);
         if (ImGui.InputText("##url", ref _url, 256))
         {
             if (Uri.TryCreate(_url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
             {
-                _config.XIVDashUrl = _url;
+                _config.XIVPathUrl = _url;
                 _config.Save();
             }
         }
@@ -91,7 +91,7 @@ public sealed class ConfigWindow : Window
         _status = "Synchronisation en cours…";
         try
         {
-            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVDashUrl);
+            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl);
             _status = result.Message;
         }
         catch (Exception ex)

@@ -2,9 +2,9 @@ using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using XIVDashPlugin.Windows;
+using XIVPathPlugin.Windows;
 
-namespace XIVDashPlugin;
+namespace XIVPathPlugin;
 
 public sealed class Plugin : IDalamudPlugin
 {
@@ -32,13 +32,13 @@ public sealed class Plugin : IDalamudPlugin
 
         _config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         _sync = new SyncService(dataManager);
-        _windowSystem = new WindowSystem("XIVDashPlugin");
+        _windowSystem = new WindowSystem("XIVPathPlugin");
         _configWindow = new ConfigWindow(_config, _sync);
         _windowSystem.AddWindow(_configWindow);
 
-        _commands.AddHandler("/xivdash", new CommandInfo(OnCommand)
+        _commands.AddHandler("/xivpath", new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre la fenêtre de configuration XIVDash Connect",
+            HelpMessage = "Ouvre la fenêtre de configuration XIVPath Connect",
         });
 
         pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
@@ -68,13 +68,13 @@ public sealed class Plugin : IDalamudPlugin
     {
         try
         {
-            _log.Debug($"[XIVDash] Déclenchement synchro ({reason})");
-            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVDashUrl);
-            _log.Information($"[XIVDash] {result.Message}");
+            _log.Debug($"[XIVPath] Déclenchement synchro ({reason})");
+            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl);
+            _log.Information($"[XIVPath] {result.Message}");
         }
         catch (Exception ex)
         {
-            _log.Warning(ex, "[XIVDash] Erreur de synchro");
+            _log.Warning(ex, "[XIVPath] Erreur de synchro");
         }
     }
 
@@ -82,7 +82,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         _clientState.TerritoryChanged -= OnTerritoryChanged;
         _clientState.Login -= OnLogin;
-        _commands.RemoveHandler("/xivdash");
+        _commands.RemoveHandler("/xivpath");
         PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= OpenConfig;
         PluginInterface.UiBuilder.OpenMainUi -= OpenConfig;

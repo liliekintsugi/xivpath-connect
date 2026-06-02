@@ -1,0 +1,46 @@
+name: Plugin CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-plugin:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5.2.0
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://goatcorp.github.io/dalamud-distrib/latest.zip" `
+            -OutFile dalamud.zip
+          Expand-Archive dalamud.zip -DestinationPath dalamud-dist
+
+      - name: Restore
+        run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $libPath = "${{ github.workspace }}\dalamud-dist\"
+          dotnet build XIVDashPlugin/XIVDashPlugin.csproj `
+            -c Release `
+            --no-restore `
+            -p:DalamudLibPath="$libPath" `
+            -p:IsCI=true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: XIVPathPlugin-ci
+          path: XIVDashPlugin/bin/Release/net10.0-windows/*

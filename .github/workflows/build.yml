@@ -43,8 +43,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: XIVDashPlugin
-          path: XIVDashPlugin/bin/Release/net10.0-windows/XIVDashPlugin/
+          name: XIVPathPlugin
+          path: XIVDashPlugin/bin/Release/net10.0-windows/*
 
       - name: Update repo.json
         if: startsWith(github.ref, 'refs/tags/')
@@ -58,10 +58,12 @@ jobs:
 
           python3 -c "
           import json, time, sys, os
-          manifest_path = os.path.join(os.environ.get('GITHUB_WORKSPACE', '.'), 'XIVDashPlugin', 'bin', 'Release', 'net10.0-windows', 'XIVDashPlugin', 'XIVDashPlugin.json')
-          if not os.path.exists(manifest_path):
-              print(f'ERROR: manifest not found at {manifest_path}', file=sys.stderr)
+          from pathlib import Path
+          candidates = list(Path(os.environ.get('GITHUB_WORKSPACE', '.')).glob('XIVDashPlugin/bin/Release/net10.0-windows/*/XIVPathPlugin.json'))
+          if not candidates:
+              print('ERROR: manifest XIVPathPlugin.json not found in build output', file=sys.stderr)
               sys.exit(1)
+          manifest_path = str(candidates[0])
           with open(manifest_path) as f:
               manifest = json.load(f)
           with open('repo.json') as f:
@@ -92,6 +94,6 @@ jobs:
         uses: softprops/action-gh-release@v3.0.0
         with:
           files: |
-            XIVDashPlugin/bin/Release/net10.0-windows/XIVDashPlugin/*
+            XIVDashPlugin/bin/Release/net10.0-windows/*/*
             repo.json
           generate_release_notes: true

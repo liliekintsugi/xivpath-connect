@@ -1,15 +1,15 @@
 [
   {
     "Author": "liliekintsugi",
-    "Name": "XIVDash Connect",
-    "InternalName": "XIVDashPlugin",
+    "Name": "XIVPath Connect",
+    "InternalName": "XIVPathPlugin",
     "AssemblyVersion": "2.1.0.0",
-    "Punchline": "Synchro ta progression FFXIV vers XIVDash.",
-    "Description": "Synchronise automatiquement ta progression FFXIV vers XIVDash : niveaux de jobs, quetes MSQ, donjons/defis/raids accomplis. Synchro auto au changement de zone.",
+    "Punchline": "Synchro ta progression FFXIV vers XIVPath.",
+    "Description": "Synchronise automatiquement ta progression FFXIV vers XIVPath : niveaux de jobs, quetes MSQ, donjons/defis/raids accomplis. Synchro auto au changement de zone.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "Tags": [
-      "xivdash",
+      "xivpath",
       "progression",
       "tracker"
     ],
@@ -17,9 +17,9 @@
     "IsHide": false,
     "IsTestingExclusive": false,
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/liliekintsugi/xivdash-connect/releases/latest/download/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/liliekintsugi/xivdash-connect/releases/latest/download/latest.zip",
-    "DownloadLinkTesting": "https://github.com/liliekintsugi/xivdash-connect/releases/latest/download/latest.zip",
+    "DownloadLinkInstall": "https://github.com/liliekintsugi/xivpath-connect/releases/latest/download/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/liliekintsugi/xivpath-connect/releases/latest/download/latest.zip",
+    "DownloadLinkTesting": "https://github.com/liliekintsugi/xivpath-connect/releases/latest/download/latest.zip",
     "DownloadCount": 0,
     "LastUpdate": 1780219632,
     "IconUrl": "",
