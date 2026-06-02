@@ -305,12 +305,12 @@ public record SyncResult(
     int    GuildhestCount = 0);
 
 public record SessionTelemetry(
-    string SyncReason,
-    string? PluginVersion,
-    string? SessionStartedAtUtc,
-    int SessionDurationSec,
-    int DailyPlaytimeSec,
-    int ZoneChanges
+    [property: JsonPropertyName("syncReason")] string SyncReason,
+    [property: JsonPropertyName("pluginVersion")] string? PluginVersion,
+    [property: JsonPropertyName("sessionStartedAtUtc")] string? SessionStartedAtUtc,
+    [property: JsonPropertyName("sessionDurationSec")] int SessionDurationSec,
+    [property: JsonPropertyName("dailyPlaytimeSec")] int DailyPlaytimeSec,
+    [property: JsonPropertyName("zoneChanges")] int ZoneChanges
 );
 
 public sealed class SyncApiResponse
