@@ -16,5 +16,8 @@ public class Configuration : IPluginConfiguration
     // Optional telemetry for recommendation quality (session duration/playtime)
     public bool EnableSessionTelemetry { get; set; } = false;
 
+    // Detailed gameplay signals for recommendation relevance (job/party/quest context)
+    public bool EnableDetailedGameplaySignals { get; set; } = true;
+
     public void Save() => Plugin.PluginInterface.SavePluginConfig(this);
 }

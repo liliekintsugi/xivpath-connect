@@ -29,7 +29,11 @@ public sealed class SyncService : IDisposable
         _dataManager = dataManager;
     }
 
-    public Task<SyncResult> SyncAsync(string token, string baseUrl, SessionTelemetry? telemetry = null)
+    public Task<SyncResult>(
+        string token,
+        string baseUrl,
+        SessionTelemetry? telemetry = null,
+        GameplaySignals? gameplay = null)
     {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             return Task.FromResult(new SyncResult(false, "URL invalide (HTTPS requis)", 0, 0, 0, 0));
@@ -56,6 +60,7 @@ public sealed class SyncService : IDisposable
                     completedRaids = completedContent.Raids,
                     completedGuildhests = completedContent.Guildhests,
                     telemetry,
+                    gameplay,
                 };
                 var json = JsonSerializer.Serialize(payload);
                 using var bodyContent = new StringContent(json, Encoding.UTF8, "application/json");
@@ -325,6 +330,21 @@ public record SessionTelemetry(
     [property: JsonPropertyName("dailyPlaytimeSec")] int DailyPlaytimeSec,
     [property: JsonPropertyName("zoneChanges")] int ZoneChanges,
     [property: JsonPropertyName("manualSyncCount")] int ManualSyncCount
+);
+
+public record GameplaySignals(
+    [property: JsonPropertyName("activeJobId")] int? ActiveJobId,
+    [property: JsonPropertyName("activeRole")] string? ActiveRole,
+    [property: JsonPropertyName("territoryId")] uint TerritoryId,
+    [property: JsonPropertyName("inParty")] bool InParty,
+    [property: JsonPropertyName("partySize")] int PartySize,
+    [property: JsonPropertyName("trackedQuestId")] uint? TrackedQuestId,
+    [property: JsonPropertyName("questSeries")] string? QuestSeries,
+    [property: JsonPropertyName("rouletteLevelingDoneToday")] bool? RouletteLevelingDoneToday,
+    [property: JsonPropertyName("rouletteTrialsDoneToday")] bool? RouletteTrialsDoneToday,
+    [property: JsonPropertyName("rouletteAllianceDoneToday")] bool? RouletteAllianceDoneToday,
+    [property: JsonPropertyName("roulettesDoneToday")] int? RoulettesDoneToday,
+    [property: JsonPropertyName("lastDutyType")] string? LastDutyType
 );
 
 public sealed class SyncApiResponse

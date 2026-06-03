@@ -92,6 +92,20 @@ Le plugin poste vers `POST /api/sync/dalamud` avec un payload :
     "dailyPlaytimeSec": 5400,
     "zoneChanges": 6,
     "manualSyncCount": 1
+  },
+  "gameplay": {
+    "activeJobId": 24,
+    "activeRole": "healer",
+    "territoryId": 339,
+    "inParty": true,
+    "partySize": 4,
+    "trackedQuestId": null,
+    "questSeries": "msq_or_annex_arr",
+    "rouletteLevelingDoneToday": null,
+    "rouletteTrialsDoneToday": null,
+    "rouletteAllianceDoneToday": null,
+    "roulettesDoneToday": null,
+    "lastDutyType": null
   }
 }
 ```
