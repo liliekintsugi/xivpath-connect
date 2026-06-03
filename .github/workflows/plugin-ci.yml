@@ -47,9 +47,9 @@ jobs:
           path: XIVDashPlugin/bin/Release/net10.0-windows/*
 
       - name: Validate plugin manifest version against repo.json
-        shell: pwsh
+        shell: bash
         run: |
-          python3 - <<'PY'
+          python3 <<'PY'
           import json
           import pathlib
           import sys
