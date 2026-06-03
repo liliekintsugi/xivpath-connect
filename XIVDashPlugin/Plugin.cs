@@ -147,8 +147,7 @@ public sealed class Plugin : IDalamudPlugin
         if (!_config.EnableDetailedGameplaySignals)
             return null;
 
-        var player = _clientState.LocalPlayer;
-        var activeJobId = player?.ClassJob.RowId > 0 ? (int?)player.ClassJob.RowId : null;
+        var activeJobId = GetActiveJobId();
         var activeRole = ResolveRole(activeJobId);
         var territoryId = _clientState.TerritoryType;
         var partySize = _partyList.Length;
@@ -189,6 +188,16 @@ public sealed class Plugin : IDalamudPlugin
         > 0 => "dps",
         _ => null,
     };
+
+    private static unsafe int? GetActiveJobId()
+    {
+        var playerState = PlayerState.Instance();
+        if (playerState == null)
+            return null;
+
+        var jobId = playerState->CurrentClassJobId;
+        return jobId > 0 ? jobId : null;
+    }
 
     private static unsafe uint? GetTrackedQuestId()
     {
