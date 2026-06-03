@@ -3,9 +3,9 @@
     "Author": "liliekintsugi",
     "Name": "XIVPath Connect",
     "InternalName": "XIVPathPlugin",
-    "AssemblyVersion": "2.1.7.0",
+    "AssemblyVersion": "2.1.8.0",
     "Punchline": "Synchro ta progression FFXIV vers XIVPath.",
-    "Description": "Synchronise automatiquement ta progression FFXIV vers XIVPath : niveaux de jobs, quetes MSQ, donjons/defis/raids accomplis. Synchro auto au changement de zone.",
+    "Description": "Synchronise automatiquement ta progression FFXIV vers XIVPath : niveaux de jobs, quetes MSQ, donjons/defis/raids accomplis. Synchro plugin-first avec cle de deduplication et telemetry de session optionnelle.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "Tags": [
@@ -21,7 +21,7 @@
     "DownloadLinkUpdate": "https://github.com/liliekintsugi/xivpath-connect/releases/latest/download/latest.zip",
     "DownloadLinkTesting": "https://github.com/liliekintsugi/xivpath-connect/releases/latest/download/latest.zip",
     "DownloadCount": 0,
-    "LastUpdate": 1780421843,
+    "LastUpdate": 1780508460,
     "IconUrl": "",
     "ImageUrls": []
   },

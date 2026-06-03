@@ -124,6 +124,7 @@ public sealed class Plugin : IDalamudPlugin
             : 0;
 
         return new SessionTelemetry(
+            Version: "v1-plugin-first",
             SyncReason: reason,
             PluginVersion: PluginInterface.Manifest.AssemblyVersion?.ToString(),
             SessionStartedAtUtc: _sessionStartedAtUtc?.UtcDateTime.ToString("O"),

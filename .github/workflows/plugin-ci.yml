@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release-*
   pull_request:
   workflow_dispatch:
 
@@ -44,3 +45,29 @@ jobs:
         with:
           name: XIVPathPlugin-ci
           path: XIVDashPlugin/bin/Release/net10.0-windows/*
+
+      - name: Validate plugin manifest version against repo.json
+        shell: pwsh
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          manifest = json.loads(pathlib.Path("XIVDashPlugin/XIVPathPlugin.json").read_text(encoding="utf-8"))
+          repo = json.loads(pathlib.Path("repo.json").read_text(encoding="utf-8"))
+
+          entry = next((x for x in repo if x.get("InternalName") == "XIVPathPlugin"), None)
+          if entry is None:
+            print("ERROR: XIVPathPlugin entry missing in repo.json", file=sys.stderr)
+            sys.exit(1)
+
+          if entry.get("AssemblyVersion") != manifest.get("AssemblyVersion"):
+            print(
+              f"ERROR: repo.json AssemblyVersion={entry.get('AssemblyVersion')} != manifest AssemblyVersion={manifest.get('AssemblyVersion')}",
+              file=sys.stderr,
+            )
+            sys.exit(1)
+
+          print("repo.json and XIVPathPlugin.json versions are aligned")
+          PY

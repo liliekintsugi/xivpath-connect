@@ -7,6 +7,7 @@ Plugin [Dalamud](https://goatcorp.github.io/) qui synchronise automatiquement ta
 - **Synchro automatique** au login et à chaque changement de zone
 - **Synchro manuelle** via le bouton dans la config ou `/xivpath`
 - Données envoyées : quêtes complétées + contenus complétés (donjons/défis/raids/opérations de guilde) + niveaux de jobs
+- Chaque sync inclut une `syncKey` unique pour l'idempotence serveur (anti doublons/replay)
 - Authentification par token Bearer (généré dans XIVPath → Personnage → Dalamud)
 
 ## Prérequis
@@ -74,6 +75,7 @@ Le plugin poste vers `POST /api/sync/dalamud` avec un payload :
 
 ```json
 {
+  "syncKey": "1717412345678:zone:2f4e6a9c1b0d",
   "completedQuests": [65539, 65540, 70123],
   "completedDungeons": [4, 2, 3],
   "completedTrials": [56, 57],
@@ -82,7 +84,15 @@ Le plugin poste vers `POST /api/sync/dalamud` avec un payload :
   "jobs": [
     { "id": 24, "level": 90 },
     { "id": 25, "level": 75 }
-  ]
+  ],
+  "telemetry": {
+    "version": "v1-plugin-first",
+    "syncReason": "zone:339",
+    "sessionDurationSec": 1820,
+    "dailyPlaytimeSec": 5400,
+    "zoneChanges": 6,
+    "manualSyncCount": 1
+  }
 }
 ```
 

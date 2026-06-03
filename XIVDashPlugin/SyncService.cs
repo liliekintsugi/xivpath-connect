@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -44,8 +45,10 @@ public sealed class SyncService : IDisposable
 
             try
             {
+                var syncKey = BuildSyncKey(telemetry?.SyncReason);
                 var payload = new
                 {
+                    syncKey,
                     completedQuests = completedQuests,
                     jobs,
                     completedDungeons = completedContent.Dungeons,
@@ -262,6 +265,15 @@ public sealed class SyncService : IDisposable
         return $"Erreur {(int)response.StatusCode}";
     }
 
+    private static string BuildSyncKey(string? reason)
+    {
+        Span<byte> randomBytes = stackalloc byte[8];
+        RandomNumberGenerator.Fill(randomBytes);
+        var entropy = Convert.ToHexString(randomBytes).ToLowerInvariant();
+        var safeReason = string.IsNullOrWhiteSpace(reason) ? "sync" : reason.Trim().ToLowerInvariant();
+        return $"{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}:{safeReason}:{entropy}";
+    }
+
     private static SyncSummary? ParseSyncSummary(string responseText)
     {
         if (string.IsNullOrWhiteSpace(responseText))
@@ -305,6 +317,7 @@ public record SyncResult(
     int    GuildhestCount = 0);
 
 public record SessionTelemetry(
+    [property: JsonPropertyName("version")] string Version,
     [property: JsonPropertyName("syncReason")] string SyncReason,
     [property: JsonPropertyName("pluginVersion")] string? PluginVersion,
     [property: JsonPropertyName("sessionStartedAtUtc")] string? SessionStartedAtUtc,
