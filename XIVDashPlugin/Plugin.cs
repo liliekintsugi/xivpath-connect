@@ -144,7 +144,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private GameplaySignals? BuildGameplaySignals()
     {
-        if (!_config.EnableSessionTelemetry || !_config.EnableDetailedGameplaySignals)
+        if (!_config.EnableDetailedGameplaySignals)
             return null;
 
         var player = _clientState.LocalPlayer;

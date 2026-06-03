@@ -29,7 +29,7 @@ public sealed class SyncService : IDisposable
         _dataManager = dataManager;
     }
 
-    public Task<SyncResult>(
+    public Task<SyncResult> SyncAsync(
         string token,
         string baseUrl,
         SessionTelemetry? telemetry = null,
