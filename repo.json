@@ -29,9 +29,9 @@
     "Author": "goat, Maple, liliekintsugi",
     "Name": "Ultrawide Cutscenes",
     "InternalName": "UltrawideCutscenes",
-    "AssemblyVersion": "1.1.1.0",
+    "AssemblyVersion": "1.1.2.0",
     "Punchline": "Remove letterboxing from cutscenes on ultrawide monitors.",
-    "Description": "This plugin removes the letterboxing bars when watching cutscenes on ultrawide monitors.\nBeware! You may see things that you are not supposed to be seeing, such as upcoming NPCs popping in or T-posing.\n\nIt can also lock the FoV during cutscenes, so camera plugins like Cammy don't leak their custom FoV into cinematics (which can cause glitches or distorted angles). Configure it with /pcutscenes cfg.\n\nThanks to aers for finding this.",
+    "Description": "This plugin removes the letterboxing bars when watching cutscenes on ultrawide monitors.\nBeware! You may see things that you are not supposed to be seeing, such as upcoming NPCs popping in or T-posing.\n\nThanks to aers for finding this.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "Tags": [
