@@ -28,13 +28,13 @@ jobs:
           Expand-Archive dalamud.zip -DestinationPath dalamud-dist
 
       - name: Restore
-        run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
+        run: dotnet restore XIVPathPlugin/XIVPathPlugin.csproj
 
       - name: Build
         shell: pwsh
         run: |
           $libPath = "${{ github.workspace }}\dalamud-dist\"
-          dotnet build XIVDashPlugin/XIVDashPlugin.csproj `
+          dotnet build XIVPathPlugin/XIVPathPlugin.csproj `
             -c Release `
             --no-restore `
             -p:DalamudLibPath="$libPath" `
@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: XIVPathPlugin-ci
-          path: XIVDashPlugin/bin/Release/net10.0-windows/*
+          path: XIVPathPlugin/bin/Release/net10.0-windows/*
 
       - name: Validate plugin manifest version against repo.json
         shell: bash
@@ -54,7 +54,7 @@ jobs:
           import pathlib
           import sys
 
-          manifest = json.loads(pathlib.Path("XIVDashPlugin/XIVPathPlugin.json").read_text(encoding="utf-8"))
+          manifest = json.loads(pathlib.Path("XIVPathPlugin/XIVPathPlugin.json").read_text(encoding="utf-8"))
           repo = json.loads(pathlib.Path("repo.json").read_text(encoding="utf-8"))
 
           entry = next((x for x in repo if x.get("InternalName") == "XIVPathPlugin"), None)

@@ -27,7 +27,7 @@ jobs:
           Expand-Archive dalamud.zip -DestinationPath dalamud-dist
 
       - name: Restore
-        run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
+        run: dotnet restore XIVPathPlugin/XIVPathPlugin.csproj
 
       - name: Build
         id: build
@@ -35,7 +35,7 @@ jobs:
         continue-on-error: true
         run: |
           $libPath = "${{ github.workspace }}\dalamud-dist\"
-          dotnet build XIVDashPlugin/XIVDashPlugin.csproj `
+          dotnet build XIVPathPlugin/XIVPathPlugin.csproj `
             -c Release `
             --no-restore `
             -p:DalamudLibPath="$libPath" `

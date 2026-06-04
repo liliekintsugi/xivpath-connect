@@ -28,13 +28,13 @@ jobs:
           Expand-Archive dalamud.zip -DestinationPath dalamud-dist
 
       - name: Restore
-        run: dotnet restore XIVDashPlugin/XIVDashPlugin.csproj
+        run: dotnet restore XIVPathPlugin/XIVPathPlugin.csproj
 
       - name: Build
         shell: pwsh
         run: |
           $libPath = "${{ github.workspace }}\dalamud-dist\"
-          dotnet build XIVDashPlugin/XIVDashPlugin.csproj `
+          dotnet build XIVPathPlugin/XIVPathPlugin.csproj `
             -c Release `
             --no-restore `
             -p:DalamudLibPath="$libPath" `
@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: XIVPathPlugin
-          path: XIVDashPlugin/bin/Release/net10.0-windows/*
+          path: XIVPathPlugin/bin/Release/net10.0-windows/*
 
       - name: Update repo.json
         if: startsWith(github.ref, 'refs/tags/')
@@ -59,7 +59,7 @@ jobs:
           python3 -c "
           import json, time, sys, os
           from pathlib import Path
-          candidates = list(Path(os.environ.get('GITHUB_WORKSPACE', '.')).glob('XIVDashPlugin/bin/Release/net10.0-windows/*/XIVPathPlugin.json'))
+          candidates = list(Path(os.environ.get('GITHUB_WORKSPACE', '.')).glob('XIVPathPlugin/bin/Release/net10.0-windows/*/XIVPathPlugin.json'))
           if not candidates:
               print('ERROR: manifest XIVPathPlugin.json not found in build output', file=sys.stderr)
               sys.exit(1)
@@ -94,6 +94,6 @@ jobs:
         uses: softprops/action-gh-release@v3.0.0
         with:
           files: |
-            XIVDashPlugin/bin/Release/net10.0-windows/*/*
+            XIVPathPlugin/bin/Release/net10.0-windows/*/*
             repo.json
           generate_release_notes: true

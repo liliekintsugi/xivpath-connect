@@ -8,7 +8,6 @@ public sealed class ConfigWindow : Window
 {
     private readonly Configuration _config;
     private readonly SyncService _sync;
-    private readonly Func<SessionTelemetry?> _telemetryProvider;
     private readonly Func<GameplaySignals?> _gameplayProvider;
 
     private string _url = string.Empty;
@@ -19,13 +18,11 @@ public sealed class ConfigWindow : Window
     public ConfigWindow(
         Configuration config,
         SyncService sync,
-        Func<SessionTelemetry?> telemetryProvider,
         Func<GameplaySignals?> gameplayProvider)
         : base("XIVPath Connect###XIVPathConfig", ImGuiWindowFlags.AlwaysAutoResize)
     {
         _config = config;
         _sync = sync;
-        _telemetryProvider = telemetryProvider;
         _gameplayProvider = gameplayProvider;
         _url = config.XIVPathUrl;
         _token = config.ApiToken;
@@ -71,14 +68,6 @@ public sealed class ConfigWindow : Window
             _config.Save();
         }
 
-        var telemetryEnabled = _config.EnableSessionTelemetry;
-        if (ImGui.Checkbox("Envoyer télémétrie de session (désactivable)", ref telemetryEnabled))
-        {
-            _config.EnableSessionTelemetry = telemetryEnabled;
-            _config.Save();
-        }
-        ImGui.TextDisabled("Inclut durée de session, temps de jeu journalier et changements de zone.");
-
         var gameplayEnabled = _config.EnableDetailedGameplaySignals;
         if (ImGui.Checkbox("Envoyer signaux gameplay détaillés (job/party/quête)", ref gameplayEnabled))
         {
@@ -115,9 +104,8 @@ public sealed class ConfigWindow : Window
         _status = "Synchronisation en cours…";
         try
         {
-            var telemetry = _telemetryProvider();
             var gameplay = _gameplayProvider();
-            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl, telemetry, gameplay);
+            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl, "manual", gameplay);
             _status = result.Message;
         }
         catch (Exception ex)

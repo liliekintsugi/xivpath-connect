@@ -32,7 +32,7 @@ public sealed class SyncService : IDisposable
     public Task<SyncResult> SyncAsync(
         string token,
         string baseUrl,
-        SessionTelemetry? telemetry = null,
+        string? syncReason = null,
         GameplaySignals? gameplay = null)
     {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
@@ -49,7 +49,7 @@ public sealed class SyncService : IDisposable
 
             try
             {
-                var syncKey = BuildSyncKey(telemetry?.SyncReason);
+                var syncKey = BuildSyncKey(syncReason);
                 var payload = new
                 {
                     syncKey,
@@ -59,7 +59,6 @@ public sealed class SyncService : IDisposable
                     completedTrials = completedContent.Trials,
                     completedRaids = completedContent.Raids,
                     completedGuildhests = completedContent.Guildhests,
-                    telemetry,
                     gameplay,
                 };
                 var json = JsonSerializer.Serialize(payload);
@@ -321,17 +320,6 @@ public record SyncResult(
     int    RaidCount = 0,
     int    GuildhestCount = 0);
 
-public record SessionTelemetry(
-    [property: JsonPropertyName("version")] string Version,
-    [property: JsonPropertyName("syncReason")] string SyncReason,
-    [property: JsonPropertyName("pluginVersion")] string? PluginVersion,
-    [property: JsonPropertyName("sessionStartedAtUtc")] string? SessionStartedAtUtc,
-    [property: JsonPropertyName("sessionDurationSec")] int SessionDurationSec,
-    [property: JsonPropertyName("dailyPlaytimeSec")] int DailyPlaytimeSec,
-    [property: JsonPropertyName("zoneChanges")] int ZoneChanges,
-    [property: JsonPropertyName("manualSyncCount")] int ManualSyncCount
-);
-
 public record GameplaySignals(
     [property: JsonPropertyName("activeJobId")] int? ActiveJobId,
     [property: JsonPropertyName("activeRole")] string? ActiveRole,
@@ -343,8 +331,7 @@ public record GameplaySignals(
     [property: JsonPropertyName("rouletteLevelingDoneToday")] bool? RouletteLevelingDoneToday,
     [property: JsonPropertyName("rouletteTrialsDoneToday")] bool? RouletteTrialsDoneToday,
     [property: JsonPropertyName("rouletteAllianceDoneToday")] bool? RouletteAllianceDoneToday,
-    [property: JsonPropertyName("roulettesDoneToday")] int? RoulettesDoneToday,
-    [property: JsonPropertyName("lastDutyType")] string? LastDutyType
+    [property: JsonPropertyName("roulettesDoneToday")] int? RoulettesDoneToday
 );
 
 public sealed class SyncApiResponse

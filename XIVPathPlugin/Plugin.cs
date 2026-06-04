@@ -20,12 +20,6 @@ public sealed class Plugin : IDalamudPlugin
     private readonly SyncService _sync;
     private readonly WindowSystem _windowSystem;
     private readonly ConfigWindow _configWindow;
-    private DateTimeOffset? _sessionStartedAtUtc;
-    private DateTimeOffset _lastPlaytimeTickUtc;
-    private DateOnly _playtimeDay = DateOnly.FromDateTime(DateTime.UtcNow);
-    private int _dailyPlaytimeSec;
-    private int _zoneChangesThisSession;
-    private int _manualSyncCountThisSession;
 
     public Plugin(
         IDalamudPluginInterface pluginInterface,
@@ -44,11 +38,7 @@ public sealed class Plugin : IDalamudPlugin
         _config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         _sync = new SyncService(dataManager);
         _windowSystem = new WindowSystem("XIVPathPlugin");
-        _configWindow = new ConfigWindow(
-            _config,
-            _sync,
-            () => BuildTelemetry("manual"),
-            BuildGameplaySignals);
+        _configWindow = new ConfigWindow(_config, _sync, BuildGameplaySignals);
         _windowSystem.AddWindow(_configWindow);
 
         _commands.AddHandler("/xivpath", new CommandInfo(OnCommand)
@@ -62,9 +52,6 @@ public sealed class Plugin : IDalamudPlugin
 
         _clientState.TerritoryChanged += OnTerritoryChanged;
         _clientState.Login += OnLogin;
-
-        if (_clientState.IsLoggedIn)
-            StartSession();
     }
 
     private void OnCommand(string command, string args) => OpenConfig();
@@ -72,75 +59,14 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnLogin()
     {
-        StartSession();
         if (!_config.AutoSyncOnZoneChange || string.IsNullOrWhiteSpace(_config.ApiToken)) return;
         _ = TriggerSync("login");
     }
 
     private void OnTerritoryChanged(uint territory)
     {
-        _zoneChangesThisSession++;
         if (!_config.AutoSyncOnZoneChange || string.IsNullOrWhiteSpace(_config.ApiToken)) return;
         _ = TriggerSync($"zone:{territory}");
-    }
-
-    private void StartSession()
-    {
-        var now = DateTimeOffset.UtcNow;
-        EnsureDailyCounter(now);
-        _sessionStartedAtUtc = now;
-        _lastPlaytimeTickUtc = now;
-        _zoneChangesThisSession = 0;
-        _manualSyncCountThisSession = 0;
-    }
-
-    private void EnsureDailyCounter(DateTimeOffset now)
-    {
-        var currentDay = DateOnly.FromDateTime(now.UtcDateTime);
-        if (currentDay == _playtimeDay) return;
-        _playtimeDay = currentDay;
-        _dailyPlaytimeSec = 0;
-    }
-
-    private void UpdateDailyPlaytime(DateTimeOffset now)
-    {
-        EnsureDailyCounter(now);
-        if (_lastPlaytimeTickUtc == default)
-        {
-            _lastPlaytimeTickUtc = now;
-            return;
-        }
-
-        var deltaSec = (int)Math.Max(0, (now - _lastPlaytimeTickUtc).TotalSeconds);
-        if (deltaSec > 0)
-            _dailyPlaytimeSec = Math.Min(86_400, _dailyPlaytimeSec + deltaSec);
-        _lastPlaytimeTickUtc = now;
-    }
-
-    private SessionTelemetry? BuildTelemetry(string reason)
-    {
-        if (!_config.EnableSessionTelemetry) return null;
-
-        if (!_sessionStartedAtUtc.HasValue)
-            StartSession();
-
-        var now = DateTimeOffset.UtcNow;
-        UpdateDailyPlaytime(now);
-        if (string.Equals(reason, "manual", StringComparison.OrdinalIgnoreCase))
-            _manualSyncCountThisSession++;
-        var sessionDurationSec = _sessionStartedAtUtc.HasValue
-            ? (int)Math.Max(0, (now - _sessionStartedAtUtc.Value).TotalSeconds)
-            : 0;
-
-        return new SessionTelemetry(
-            Version: "v1-plugin-first",
-            SyncReason: reason,
-            PluginVersion: PluginInterface.Manifest.AssemblyVersion?.ToString(),
-            SessionStartedAtUtc: _sessionStartedAtUtc?.UtcDateTime.ToString("O"),
-            SessionDurationSec: Math.Min(86_400, sessionDurationSec),
-            DailyPlaytimeSec: _dailyPlaytimeSec,
-            ZoneChanges: _zoneChangesThisSession,
-            ManualSyncCount: _manualSyncCountThisSession);
     }
 
     private GameplaySignals? BuildGameplaySignals()
@@ -162,10 +88,6 @@ public sealed class Plugin : IDalamudPlugin
         // null et le serveur traite ça comme "inconnu" (pas "non fait").
         var (rLeveling, rTrials, rAlliance, rTotal) = GetDailyRouletteFlags();
 
-        // `lastDutyType` : on n'a pas encore de hook duty fini → null. Sera renseigné
-        // dans une prochaine itération avec IDutyState.
-        string? lastDutyType = null;
-
         return new GameplaySignals(
             ActiveJobId: activeJobId,
             ActiveRole: activeRole,
@@ -177,8 +99,7 @@ public sealed class Plugin : IDalamudPlugin
             RouletteLevelingDoneToday: rLeveling,
             RouletteTrialsDoneToday: rTrials,
             RouletteAllianceDoneToday: rAlliance,
-            RoulettesDoneToday: rTotal,
-            LastDutyType: lastDutyType
+            RoulettesDoneToday: rTotal
         );
     }
 
@@ -275,9 +196,8 @@ public sealed class Plugin : IDalamudPlugin
         try
         {
             _log.Debug($"[XIVPath] Déclenchement synchro ({reason})");
-            var telemetry = BuildTelemetry(reason);
             var gameplay = BuildGameplaySignals();
-            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl, telemetry, gameplay);
+            var result = await _sync.SyncAsync(_config.ApiToken, _config.XIVPathUrl, reason, gameplay);
             _log.Information($"[XIVPath] {result.Message}");
         }
         catch (Exception ex)

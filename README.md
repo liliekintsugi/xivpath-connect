@@ -35,10 +35,10 @@ Plugin [Dalamud](https://goatcorp.github.io/) qui synchronise automatiquement ta
 ```bash
 git clone https://github.com/liliekintsugi/xivpath-connect.git
 cd xivpath-connect
-dotnet build XIVDashPlugin/XIVDashPlugin.csproj -c Release
+dotnet build XIVPathPlugin/XIVPathPlugin.csproj -c Release
 ```
 
-Le `.dll` sera dans `XIVDashPlugin/bin/Release/net10.0-windows/XIVPathPlugin.dll`.
+Le `.dll` sera dans `XIVPathPlugin/bin/Release/net10.0-windows/XIVPathPlugin.dll`.
 
 Suis ensuite les étapes 3–5 ci-dessus.
 
@@ -59,13 +59,13 @@ La première synchro se déclenche automatiquement à la prochaine zone ou au pr
 ## Structure du projet
 
 ```
-XIVDashPlugin/
+XIVPathPlugin/
 ├── Plugin.cs              # Entrée principale, hooks Dalamud
 ├── Configuration.cs       # Config persistante (url, token, options)
 ├── SyncService.cs         # Scan des quêtes + niveaux jobs + POST API
 ├── Windows/
 │   └── ConfigWindow.cs    # Interface ImGui (/xivpath)
-├── XIVDashPlugin.csproj
+├── XIVPathPlugin.csproj
 └── XIVPathPlugin.json     # Métadonnées plugin
 ```
 
